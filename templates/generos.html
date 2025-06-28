@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+
+<form method="post" action="{{ url_for('mostrar_generos') }}">
+                    <label for="membros">Membros:</label>
+                    <input type="number" id="membros" name="membros" min="1" required placeholder="Membros">
+                    <br><br>
+                    <table>
+                        <tr>
+                        {% for genero in generos %}
+                            <td>
+                                <input type="checkbox" id="{{ genero }}" name="mostrar_generos" value="{{ genero }}">
+                                <label for="{{ genero }}">{{ genero }}</label>
+                            </td>
+                            {% if loop.index % 8 == 0 %}
+                        </tr><tr>
+                            {% endif %}
+                        {% endfor %}
+                        </tr>
+                    </table>
+                    <button type="submit">Enviar</button>
+                </form>
+{% endblock %}

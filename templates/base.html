@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}MAOMAO{% endblock %}</title>
+    <style>
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            background: #fff;
+            border-bottom: 1px solid #eee;
+        }
+        .logo {
+            height: 48px;
+            margin-right: 16px;
+        }
+        .site-name {
+            color: #1abc1a;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-weight: bold;
+            font-size: 2em;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="{{ url_for('static', filename='maomao.jpg') }}" alt="MAOMAO" class="logo">
+        <span class="site-name">MAOMAO</span>
+    </div>
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

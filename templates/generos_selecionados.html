@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+{% extends "base.html" %}
+{% block content %}
+<head>
+    <meta charset="UTF-8">
+    <title>Generos Selecionados</title>
+</head>
+Os gêneros de filmes selecionados são:
+<ul>
+    <p>Membros: {{ membros }}</p>
+    {% for genero in selecionados %}
+    <li>{{ genero }}</li>
+    {% endfor %}
+
+    <!-- Destaque para a nota predita -->
+    {% if predição is defined %}
+    <div style="margin: 20px auto; padding: 20px; background: #1abc1a; color: #333; font-size: 2em; text-align: center; border-radius: 10px; width: 50%;">
+        Nota predita: <strong>{{ predição }}</strong>
+    </div>
+    {% endif %}
+    {% endblock %}
+</ul>
