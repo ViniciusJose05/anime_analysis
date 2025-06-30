@@ -12,10 +12,13 @@ app = Flask(__name__)
 def index():
     return render_template('index.html')
 
+
+graficos = gerar_graficos_dashboard()
+
 # Visualização dos dados
 @app.route('/dashboard')
 def dashboard():
-    graficos = gerar_graficos_dashboard()
+    global graficos
     return render_template('dashboard.html', **graficos)
 
 # Preditor de nota baseado em generos e numero de membros
