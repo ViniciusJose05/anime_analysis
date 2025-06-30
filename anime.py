@@ -63,8 +63,6 @@ def process_genres(genres):
 df_clean = df_clean.with_columns(
     pl.col('Genres').map_elements(process_genres, return_dtype=pl.Utf8).alias('Genres_combination')
 )
-# download em formato json da database polars
-df_clean.write_json('df_clean.json')
 
 """# 3. Análises Exploratórias"""
 
