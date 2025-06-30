@@ -1,6 +1,25 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h2>Dashboard</h2>
-    <p>Em breve: visualização de dados e estatísticas.</p>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <h2>Dashboard Interativo</h2>
+
+    <h3>Gêneros Mais Frequentes</h3>
+    {{ grafico_generos_freq | safe }}
+
+    <h3>Top 15 Gêneros com Melhores Notas</h3>
+    {{ grafico_nota_genero_top | safe }}
+
+    <h3>15 Gêneros com Piores Notas</h3>
+    {{ grafico_nota_genero_worst | safe }}
+
+    <h3>Combinações de Gêneros Mais Comuns</h3>
+    {{ grafico_combos | safe }}
+
+    <h3>Estúdios com as Melhores Notas Médias</h3>
+    {{ grafico_estudios | safe }}
+
+    <h3>Relação entre Nota e Popularidade</h3>
+    {{ grafico_pop | safe }}
 {% endblock %}

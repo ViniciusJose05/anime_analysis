@@ -3,8 +3,7 @@ from flask import request
 from flask import url_for
 from flask import redirect
 from flask import render_template
-from anime import df_exploded, predict_score_knn
-
+from anime import df_exploded, predict_score_knn, gerar_graficos_dashboard
 
 # Inicialização do Flask
 app = Flask(__name__)
@@ -13,13 +12,11 @@ app = Flask(__name__)
 def index():
     return render_template('index.html')
 
-
 # Visualização dos dados
 @app.route('/dashboard')
 def dashboard():
-    # Implementação futura
-    return render_template('dashboard.html')
-
+    graficos = gerar_graficos_dashboard()
+    return render_template('dashboard.html', **graficos)
 
 # Preditor de nota baseado em generos e numero de membros
 generos_lista = df_exploded['Genres'].unique().to_list()
@@ -45,3 +42,7 @@ def mostrar_resultados():
     predicao = predict_score_knn(membros, booleans)
     print(predicao)
     return render_template('generos_selecionados.html', selecionados=selecionados, membros=membros, predição =predicao)
+
+# rodar o servidor Flask
+if __name__ == '__main__':
+    app.run(debug=True)

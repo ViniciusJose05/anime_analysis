@@ -91,7 +91,8 @@ genero_freq = (
     .rename({'len': 'Frequencia'})
 )
 
-px.bar(genero_freq.to_pandas(), x='Genres', y='Frequencia', title='Gêneros Mais Frequentes').show()
+fig1 = px.bar(genero_freq.to_pandas(), x='Genres', y='Frequencia', title='Gêneros Mais Frequentes')
+grafico_generos_freq = fig1.to_html(full_html=False, include_plotlyjs='cdn')
 
 """### 3.2. Nota média por gênero"""
 
@@ -101,8 +102,11 @@ genero_score = (
     .sort('Nota Média', descending=True)
 )
 
-px.bar(genero_score.head(15).to_pandas(), x='Genres', y='Nota Média', title='Top 15 Gêneros com Melhores Notas').show()
-px.bar(genero_score.tail(15).to_pandas(), x='Genres', y='Nota Média', title='15 Gêneros com Piores Notas').show()
+fig2 = px.bar(genero_score.head(15).to_pandas(), x='Genres', y='Nota Média', title='Top 15 Gêneros com Melhores Notas')
+grafico_nota_genero_top = fig2.to_html(full_html=False, include_plotlyjs='cdn')
+
+fig3 = px.bar(genero_score.tail(15).to_pandas(), x='Genres', y='Nota Média', title='15 Gêneros com Piores Notas')
+grafico_nota_genero_worst = fig3.to_html(full_html=False, include_plotlyjs='cdn')
 
 """### 3.3. Combinações de gêneros mais comuns"""
 
@@ -115,8 +119,9 @@ combo_freq = (
     .sort('Frequencia', descending=True)
 )
 
-px.bar(combo_freq.head(15).to_pandas(), x='Genres_combination', y='Frequencia',
-       title='🔗 Combinações de Gêneros Mais Comuns (com 2 ou mais gêneros)').show()
+fig4 = px.bar(combo_freq.head(15).to_pandas(), x='Genres_combination', y='Frequencia',
+       title='🔗 Combinações de Gêneros Mais Comuns (com 2 ou mais gêneros)')
+grafico_combos = fig4.to_html(full_html=False, include_plotlyjs='cdn')
 
 """### 3.4. Estúdios com melhor nota média
 
@@ -138,7 +143,7 @@ studio_avg = (
     .sort('Nota Média', descending=True)
 )
 
-fig = px.bar(
+fig5 = px.bar(
     studio_avg.head(15).to_pandas(),  # Top 15 estúdios com melhor nota média
     x='Studios',
     y='Nota Média',
@@ -146,17 +151,19 @@ fig = px.bar(
     text='Nota Média',
     labels={'Studios': 'Estúdio', 'Nota Média': 'Nota Média'}
 )
-fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-fig.update_layout(xaxis_tickangle=-45)
-fig.show()
+fig5.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+fig5.update_layout(xaxis_tickangle=-45)
+grafico_estudios = fig5.to_html(full_html=False, include_plotlyjs='cdn')
 
 """ ### 3.5. Relação entre popularidade e avaliação"""
 
 relacao_popularidade = df_clean.select(['Score', 'Members', 'Genres_combination']).to_pandas()
 
-px.scatter(relacao_popularidade, x='Score', y='Members', color='Genres_combination',
+fig6 = px.scatter(relacao_popularidade, x='Score', y='Members', color='Genres_combination',
            size='Members', hover_data=['Genres_combination'],
-           title='Relação entre Nota e Popularidade por Gênero').show()
+           title='Relação entre Nota e Popularidade por Gênero')
+
+grafico_pop = fig6.to_html(full_html=False, include_plotlyjs='cdn')
 
 """# 4. Modelo SVM para predição de notas
 

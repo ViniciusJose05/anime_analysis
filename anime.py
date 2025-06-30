@@ -254,4 +254,29 @@ if __name__ == "__main__":
     print(f"MSE por fold: {mse_scores_membros}")
     print(f"Média do erro quadrático médio: {average_mse_membros}")
 
+def gerar_graficos_dashboard():
+    graficos = {}
 
+    fig1 = px.bar(genero_freq.to_pandas(), x='Genres', y='Frequencia', title='Gêneros Mais Frequentes')
+    graficos['grafico_generos_freq'] = fig1.to_html(full_html=False, include_plotlyjs='cdn')
+
+    fig2 = px.bar(genero_score.head(15).to_pandas(), x='Genres', y='Nota Média', title='Top 15 Gêneros com Melhores Notas')
+    graficos['grafico_nota_genero_top'] = fig2.to_html(full_html=False, include_plotlyjs='cdn')
+
+    fig3 = px.bar(genero_score.tail(15).to_pandas(), x='Genres', y='Nota Média', title='15 Gêneros com Piores Notas')
+    graficos['grafico_nota_genero_worst'] = fig3.to_html(full_html=False, include_plotlyjs='cdn')
+
+    fig4 = px.bar(combo_freq.head(15).to_pandas(), x='Genres_combination', y='Frequencia',
+                  title='🔗 Combinações de Gêneros Mais Comuns (com 2 ou mais gêneros)')
+    graficos['grafico_combos'] = fig4.to_html(full_html=False, include_plotlyjs='cdn')
+
+    fig5 = px.bar(studio_avg.head(15).to_pandas(), x='Studios', y='Nota Média',
+                  title='🎬 Estúdios com Melhores Notas Médias')
+    graficos['grafico_estudios'] = fig5.to_html(full_html=False, include_plotlyjs='cdn')
+
+    fig6 = px.scatter(relacao_popularidade, x='Score', y='Members', color='Genres_combination',
+                      size='Members', hover_data=['Genres_combination'],
+                      title='Relação entre Nota e Popularidade por Gênero')
+    graficos['grafico_pop'] = fig6.to_html(full_html=False, include_plotlyjs='cdn')
+
+    return graficos
