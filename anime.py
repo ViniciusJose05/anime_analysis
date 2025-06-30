@@ -257,26 +257,93 @@ if __name__ == "__main__":
 def gerar_graficos_dashboard():
     graficos = {}
 
-    fig1 = px.bar(genero_freq.to_pandas(), x='Genres', y='Frequencia', title='Gêneros Mais Frequentes')
+    # Gêneros mais frequentes
+    fig1 = px.bar(genero_freq.to_pandas(), x='Genres', y='Frequencia', title='🎭 Gêneros Mais Frequentes')
     graficos['grafico_generos_freq'] = fig1.to_html(full_html=False, include_plotlyjs='cdn')
 
-    fig2 = px.bar(genero_score.head(15).to_pandas(), x='Genres', y='Nota Média', title='Top 15 Gêneros com Melhores Notas')
+    # Top 15 Gêneros com Melhores Notas (linha)
+    fig2 = px.line(
+        genero_score.head(15).to_pandas(),
+        x='Genres',
+        y='Nota Média',
+        markers=True,
+        title='📈 Top 15 Gêneros com Melhores Notas'
+    )
+    fig2.update_traces(mode='lines+markers+text', texttemplate='%{y:.2f}', textposition='top center')
     graficos['grafico_nota_genero_top'] = fig2.to_html(full_html=False, include_plotlyjs='cdn')
 
-    fig3 = px.bar(genero_score.tail(15).to_pandas(), x='Genres', y='Nota Média', title='15 Gêneros com Piores Notas')
+    # 15 Gêneros com Piores Notas (linha)
+    fig3 = px.line(
+        genero_score.tail(15).to_pandas(),
+        x='Genres',
+        y='Nota Média',
+        markers=True,
+        title='📉 15 Gêneros com Piores Notas'
+    )
+    fig3.update_traces(mode='lines+markers+text', texttemplate='%{y:.2f}', textposition='top center')
     graficos['grafico_nota_genero_worst'] = fig3.to_html(full_html=False, include_plotlyjs='cdn')
 
+    # Combinações de gêneros mais comuns
     fig4 = px.bar(combo_freq.head(15).to_pandas(), x='Genres_combination', y='Frequencia',
                   title='🔗 Combinações de Gêneros Mais Comuns (com 2 ou mais gêneros)')
     graficos['grafico_combos'] = fig4.to_html(full_html=False, include_plotlyjs='cdn')
 
-    fig5 = px.bar(studio_avg.head(15).to_pandas(), x='Studios', y='Nota Média',
-                  title='🎬 Estúdios com Melhores Notas Médias')
+    # Estúdios com nomes simples (sem vírgula)
+    studio_avg_simples = studio_avg.filter(~pl.col('Studios').str.contains(","))
+    fig5 = px.bar(
+        studio_avg_simples.head(15).to_pandas().sort_values(by='Nota Média'),
+        x='Nota Média',
+        y='Studios',
+        orientation='h',
+        title='🏆 Estúdios com Melhores Notas Médias (nome único)',
+        text='Nota Média'
+    )
+    fig5.update_traces(texttemplate='%{text:.2f}', textposition='outside')
     graficos['grafico_estudios'] = fig5.to_html(full_html=False, include_plotlyjs='cdn')
 
-    fig6 = px.scatter(relacao_popularidade, x='Score', y='Members', color='Genres_combination',
-                      size='Members', hover_data=['Genres_combination'],
-                      title='Relação entre Nota e Popularidade por Gênero')
+    # Popularidade x Nota com bolhas
+    relacao_popularidade_nome = df_clean.select(['Score', 'Members', 'Name']).to_pandas()
+
+    fig6 = px.scatter(
+        relacao_popularidade_nome,
+        x='Score',
+        y='Members',
+        color='Score',  # você pode usar 'Score' para colorir por intensidade
+        size='Members',
+        hover_name='Name',
+        title='📊 Popularidade vs Nota por Anime (Gráfico de Bolhas)'
+    )
     graficos['grafico_pop'] = fig6.to_html(full_html=False, include_plotlyjs='cdn')
+
+    # Score distribution
+    df_scores_distrib = df_clean.with_columns(
+    pl.col('Score').round(0).alias('ScoreArredondado')
+    )
+
+    score_dist = (
+        df_scores_distrib
+        .group_by('ScoreArredondado')
+        .agg(pl.col('Members').sum().alias('TotalMembros'))
+        .sort('ScoreArredondado', descending=True)
+    )
+
+    fig7 = px.line(
+        score_dist.to_pandas(),
+        x='ScoreArredondado',
+        y='TotalMembros',
+        markers=True,
+        title='📈 Distribuição de Usuários por Nota (Score)'
+    )
+    fig7.update_traces(mode='lines+markers+text', texttemplate='%{y}', textposition='top center')
+    graficos['grafico_score_dist'] = fig7.to_html(full_html=False, include_plotlyjs='cdn')
+
+    # Pizza chart - Distribuição de Gêneros
+    fig8 = px.pie(
+        genero_freq.to_pandas().head(10),
+        values='Frequencia',
+        names='Genres',
+        title='🍕 Distribuição de Gêneros (Top 10)'
+    )
+    graficos['grafico_pizza_generos'] = fig8.to_html(full_html=False, include_plotlyjs='cdn')
 
     return graficos

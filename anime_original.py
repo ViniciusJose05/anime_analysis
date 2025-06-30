@@ -102,10 +102,24 @@ genero_score = (
     .sort('Nota Média', descending=True)
 )
 
-fig2 = px.bar(genero_score.head(15).to_pandas(), x='Genres', y='Nota Média', title='Top 15 Gêneros com Melhores Notas')
+fig2 = px.line(
+    genero_score.head(15).to_pandas(),
+    x='Genres',
+    y='Nota Média',
+    markers=True,
+    title='📈 Top 15 Gêneros com Melhores Notas'
+)
+fig2.update_traces(mode='lines+markers+text', textposition='top center', texttemplate='%{y:.2f}')
+
 grafico_nota_genero_top = fig2.to_html(full_html=False, include_plotlyjs='cdn')
 
-fig3 = px.bar(genero_score.tail(15).to_pandas(), x='Genres', y='Nota Média', title='15 Gêneros com Piores Notas')
+fig3 = px.box(
+    df_exploded.filter(pl.col("Genres").is_in(genero_score.tail(15)['Genres'].to_list())).to_pandas(),
+    x='Genres',
+    y='Score',
+    title='📊 Distribuição das Notas para os 15 Gêneros com Piores Médias'
+)
+fig3.update_traces(boxpoints='all', jitter=0.3, pointpos=-1.8)
 grafico_nota_genero_worst = fig3.to_html(full_html=False, include_plotlyjs='cdn')
 
 """### 3.3. Combinações de gêneros mais comuns"""
@@ -143,16 +157,15 @@ studio_avg = (
     .sort('Nota Média', descending=True)
 )
 
-fig5 = px.bar(
-    studio_avg.head(15).to_pandas(),  # Top 15 estúdios com melhor nota média
-    x='Studios',
-    y='Nota Média',
-    title='🎬 Estúdios com as Melhores Notas Médias (com pelo menos 5 animes)',
-    text='Nota Média',
-    labels={'Studios': 'Estúdio', 'Nota Média': 'Nota Média'}
+fig5 = px.scatter(
+    studio_avg.head(15).to_pandas(),
+    y='Studios',
+    x='Nota Média',
+    size='Quantidade de Animes',
+    title='🔵 Estúdios com as Melhores Notas Médias (tamanho da bolha = nº de animes)',
+    labels={'Nota Média': 'Nota Média', 'Studios': 'Estúdio'}
 )
-fig5.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-fig5.update_layout(xaxis_tickangle=-45)
+fig5.update_layout(yaxis={'categoryorder':'total ascending'})
 grafico_estudios = fig5.to_html(full_html=False, include_plotlyjs='cdn')
 
 """ ### 3.5. Relação entre popularidade e avaliação"""
@@ -164,6 +177,9 @@ fig6 = px.scatter(relacao_popularidade, x='Score', y='Members', color='Genres_co
            title='Relação entre Nota e Popularidade por Gênero')
 
 grafico_pop = fig6.to_html(full_html=False, include_plotlyjs='cdn')
+
+""" ### 3.6. Relação entre popularidade e avaliação"""
+
 
 """# 4. Modelo SVM para predição de notas
 
