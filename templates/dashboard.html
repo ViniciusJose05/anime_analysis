@@ -1,25 +1,52 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<h2>Dashboard de Animes</h2>
 
-  <h2>Dashboard Interativo</h2>
+<!-- Container do grid -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
 
-    <h3>Gêneros Mais Frequentes</h3>
+  <!-- Coluna 1 -->
+  <div>
+    <h3></h3>
     {{ grafico_generos_freq | safe }}
+  </div>
 
-    <h3>Top 15 Gêneros com Melhores Notas</h3>
-    {{ grafico_nota_genero_top | safe }}
-
-    <h3>15 Gêneros com Piores Notas</h3>
-    {{ grafico_nota_genero_worst | safe }}
-
-    <h3>Combinações de Gêneros Mais Comuns</h3>
+  <div>
+    <h3></h3>
     {{ grafico_combos | safe }}
+  </div>
 
-    <h3>Estúdios com as Melhores Notas Médias</h3>
+  <div>
+    <h3></h3>
+    {{ grafico_nota_genero_top | safe }}
+  </div>
+
+  <div>
+    <h3></h3>
+    {{ grafico_nota_genero_worst | safe }}
+  </div>
+
+  <div>
+    <h3></h3>
     {{ grafico_estudios | safe }}
+  </div>
 
-    <h3>Relação entre Nota e Popularidade</h3>
+  <div>
+    <h3></h3>
     {{ grafico_pop | safe }}
+  </div>
+
+  <div>
+    <h3></h3>
+    {{ grafico_score_dist | safe }}
+  </div>
+
+  <div>
+    <h3></h3>
+    {{ grafico_pizza_generos | safe }}
+  </div>
+
+</div>
+
 {% endblock %}
