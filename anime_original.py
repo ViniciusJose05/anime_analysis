@@ -27,7 +27,7 @@ Download dos arquivos via API do kaggle e criação do dataframe inicial
 import polars as pl
 
 # Baixar e carregar o dataset
-anime_polars = pl.read_csv("H:\\Documentos\\DB_Animes\\databases\\anime.csv", null_values="Unknown")
+anime_polars = pl.read_csv("databases/anime.csv", null_values="Unknown")
 
 anime_polars.head()
 
