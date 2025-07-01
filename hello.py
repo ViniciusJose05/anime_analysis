@@ -22,7 +22,7 @@ def dashboard():
     return render_template('dashboard.html', **graficos)
 
 # Preditor de nota baseado em generos e numero de membros
-generos_lista = df_exploded['Genres'].unique().to_list()
+generos_lista = sorted(df_exploded['Genres'].unique().to_list())
 booleans = []
 selecionados = []
 membros = 0
@@ -36,6 +36,7 @@ def processar_generos():
     global booleans, membros
     global selecionados
     selecionados = request.form.getlist('mostrar_generos')
+    print(generos_lista)
     booleans = [g in selecionados for g in generos_lista]
     membros = int(request.form.get('membros', 0))
     return redirect(url_for('mostrar_resultados'))
