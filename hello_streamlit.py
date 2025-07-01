@@ -1,6 +1,7 @@
 import streamlit as st
 import polars as pl
 import plotly.express as px
+import plotly.graph_objects as go
 from anime import predict_score_knn, df_exploded
 
 # ---------- Configuração da página ----------
@@ -8,10 +9,10 @@ st.set_page_config(page_title="MaoMao - Análise de Animes", layout="wide")
 
 # ---------- Cabeçalho ----------
 with st.container():
-    col1, col2 = st.columns([1, 8])
-    with col1:
+    col_logo, col_title = st.columns([1, 8])
+    with col_logo:
         st.image("static/MaoMao.png", width=100)
-    with col2:
+    with col_title:
         st.markdown("## MaoMao")
         st.markdown("Dashboard de Análise de Animes")
     st.markdown("---")
@@ -19,30 +20,65 @@ with st.container():
 # ---------- Seleção de Página ----------
 pagina = st.sidebar.radio("Escolha a página:", ["Dashboard", "Preditor de Notas"])
 
-if pagina == "Dashboard":
-    # ---------- Pré-processamento ----------
-    @st.cache_data
-    def carregar_dados():
-        df = pl.read_csv("databases/anime.csv", null_values="Unknown")
-        df = df.filter(pl.col('Score').is_not_null() & pl.col('Genres').is_not_null())
-        df = df.with_columns([
-            pl.col('Genres').str.split(', ').alias('Genres')
-        ])
-        df = df.with_columns([
-            pl.col('Genres').list.eval(
-                pl.when(pl.element() == pl.lit("Hentai")).then(pl.lit("+18")).otherwise(pl.element())
-            ).alias("Genres")
-        ])
-        df = df.with_columns(
-            pl.col("Genres").map_elements(lambda genres: ", ".join(sorted(genres))).alias("Genres_combination")
-        )
-        return df
+@st.cache_data
+def carregar_dados():
+    df = pl.read_csv("databases/anime.csv", null_values="Unknown")
+    df = df.filter(pl.col('Score').is_not_null() & pl.col('Genres').is_not_null())
+    df = df.with_columns([
+        pl.col('Genres').str.split(', ').alias('Genres')
+    ])
+    df = df.with_columns([
+        pl.col('Genres').list.eval(
+            pl.when(pl.element() == pl.lit("Hentai")).then(pl.lit("+18")).otherwise(pl.element())
+        ).alias("Genres")
+    ])
+    df = df.with_columns(
+        pl.col("Genres").map_elements(lambda genres: ", ".join(sorted(genres))).alias("Genres_combination")
+    )
+    return df
 
-    df_clean = carregar_dados()
+df_clean = carregar_dados()
+df_exploded = df_clean.explode("Genres")
+
+generos_unicos = sorted(df_exploded["Genres"].unique().to_list())
+
+if pagina == "Dashboard":
+    # ---------- KPIs em estilo de cards ----------
+    total_animes = df_clean.shape[0]
+    total_membros = df_clean.select(pl.col("Members")).sum()[0, 0]
+    total_generos = len(generos_unicos)
+    estudios_unicos = df_clean.select(pl.col("Studios")).unique().drop_nulls().shape[0]
+
+    st.markdown("### 📊 Visão Geral da Base")
+    card1, card2 = st.columns(2)
+
+    with card1:
+        st.markdown(f"""
+        <div style='background-color:#202020;padding:20px;border-radius:10px;'>
+            <h3 style='color:white;'>Total de Animes</h3>
+            <h1 style='color:#4CAF50'>{total_animes:,}</h1>
+        </div>""", unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div style='background-color:#202020;padding:20px;border-radius:10px;margin-top:15px;'>
+            <h3 style='color:white;'>Total de Membros</h3>
+            <h1 style='color:#03A9F4'>{total_membros:,}</h1>
+        </div>""", unsafe_allow_html=True)
+
+    with card2:
+        st.markdown(f"""
+        <div style='background-color:#202020;padding:20px;border-radius:10px;'>
+            <h3 style='color:white;'>Gênros Distintos</h3>
+            <h1 style='color:#FF9800'>{total_generos}</h1>
+        </div>""", unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div style='background-color:#202020;padding:20px;border-radius:10px;margin-top:15px;'>
+            <h3 style='color:white;'>Estúdios Distintos</h3>
+            <h1 style='color:#E91E63'>{estudios_unicos}</h1>
+        </div>""", unsafe_allow_html=True)
 
     # ---------- Análises ----------
-    df_exploded = df_clean.explode("Genres")
-
     genero_freq = (
         df_exploded.group_by("Genres")
         .agg(pl.count().alias("Frequencia"))
@@ -85,61 +121,21 @@ if pagina == "Dashboard":
         .sort('ScoreArredondado')
     )
 
-    # ---------- Seção 1: Gêneros ----------
-    st.markdown("### 🎭 Gêneros")
+    # ---------- Layout Estilo Três Colunas ----------
+    col1, col2, col3 = st.columns([1, 2, 1])
 
-    col1, col2 = st.columns(2)
     with col1:
+        st.subheader("🌽 Gênros Mais Frequentes")
         fig1 = px.bar(genero_freq.to_pandas().head(15), x='Genres', y='Frequencia',
                       color_discrete_sequence=px.colors.qualitative.Alphabet)
-        st.subheader("Mais Frequentes")
         st.plotly_chart(fig1, use_container_width=True)
 
-    with col2:
+        st.subheader("🍕 Distribuição de Gênros")
         fig8 = px.pie(genero_freq.to_pandas().head(10), values='Frequencia', names='Genres')
-        st.subheader("Distribuição (Top 10)")
         st.plotly_chart(fig8, use_container_width=True)
 
-    # ---------- Seção 2: Avaliações por Gênero ----------
-    st.markdown("### 🎯 Avaliações por Gênero")
-
-    col3, col4 = st.columns(2)
-    with col3:
-        fig2 = px.line(genero_score.head(15).to_pandas(), x='Genres', y='Nota Média',
-                       markers=True, color_discrete_sequence=px.colors.qualitative.Bold)
-        fig2.update_traces(mode='lines+markers+text', textposition='top center', texttemplate='%{y:.2f}')
-        st.subheader("Top 15 Melhores Notas")
-        st.plotly_chart(fig2, use_container_width=True)
-
-    with col4:
-        fig3 = px.line(genero_score.tail(15).to_pandas(), x='Genres', y='Nota Média',
-                       markers=True, color_discrete_sequence=px.colors.qualitative.Vivid)
-        fig3.update_traces(mode='lines+markers+text', textposition='top center', texttemplate='%{y:.2f}')
-        st.subheader("15 Piores Notas")
-        st.plotly_chart(fig3, use_container_width=True)
-
-    # ---------- Seção 3: Combinações de Gêneros ----------
-    st.markdown("### 🔗 Combinações de Gêneros")
-
-    fig4 = px.bar(combo_freq.head(15).to_pandas(), x='Genres_combination', y='Frequencia',
-                  color_discrete_sequence=px.colors.qualitative.Pastel)
-    st.plotly_chart(fig4, use_container_width=True)
-
-    # ---------- Seção 4: Estúdios ----------
-    st.markdown("### 🏆 Estúdios com Melhores Notas Médias")
-
-    fig5 = px.bar(
-        studio_avg_simples.head(15).to_pandas().sort_values("Nota Média"),
-        x='Nota Média', y='Studios', orientation='h', text='Nota Média'
-    )
-    fig5.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-    st.plotly_chart(fig5, use_container_width=True)
-
-    # ---------- Seção 5: Popularidade e Score ----------
-    st.markdown("### 📊 Popularidade vs Avaliação")
-
-    col5, col6 = st.columns([2, 1])
-    with col5:
+    with col2:
+        st.subheader("📊 Popularidade vs Nota")
         fig6 = px.scatter(
             relacao_popularidade_nome,
             x='Score', y='Members',
@@ -147,50 +143,53 @@ if pagina == "Dashboard":
             hover_name='Name',
             color_continuous_scale='Rainbow'
         )
-        st.subheader("Bolhas: Score x Popularidade")
         st.plotly_chart(fig6, use_container_width=True)
 
-    with col6:
+        st.subheader("📈 Distribuição de Notas")
         fig7 = px.line(score_dist.to_pandas(), x='ScoreArredondado', y='TotalMembros',
                        markers=True, color_discrete_sequence=px.colors.qualitative.Antique)
         fig7.update_traces(mode='lines+markers+text', textposition='top center', texttemplate='%{y}')
-        st.subheader("Distribuição de Notas")
         st.plotly_chart(fig7, use_container_width=True)
 
-else:  # Preditor de Notas
+    with col3:
+        st.subheader("🏆 Estúdios com Melhores Notas")
+        fig5 = px.bar(
+            studio_avg_simples.head(15).to_pandas().sort_values("Nota Média"),
+            x='Nota Média', y='Studios', orientation='h', text='Nota Média'
+        )
+        fig5.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+        st.plotly_chart(fig5, use_container_width=True)
+
+        st.subheader("🔗 Combinações de Gênros")
+        fig4 = px.bar(combo_freq.head(15).to_pandas(), x='Genres_combination', y='Frequencia',
+                      color_discrete_sequence=px.colors.qualitative.Pastel)
+        st.plotly_chart(fig4, use_container_width=True)
+
+else:  # Preditor
     st.markdown("### 🔮 Preditor de Notas")
-    st.markdown("Selecione os gêneros e informe o número de membros para predizer a nota do anime.")
+    st.markdown("Selecione os gênros e informe o número de membros para predizer a nota do anime.")
 
-    # Lista de gêneros únicos
-    generos_unicos = sorted(df_exploded['Genres'].unique().to_list())
-
-    # Input de membros
     membros = st.number_input("Número de Membros:", min_value=1, step=1000)
 
-    # Criando colunas para os checkboxes de gêneros
-    st.markdown("### Selecione os Gêneros:")
+    st.markdown("### Selecione os Gênros:")
     cols = st.columns(4)
     generos_selecionados = []
 
-    # Distribuindo os gêneros em 4 colunas
     for idx, genero in enumerate(generos_unicos):
         with cols[idx % 4]:
             if st.checkbox(genero, key=genero):
                 generos_selecionados.append(genero)
 
-    # Botão de predição
     if st.button("Predizer Nota"):
         if membros > 0 and generos_selecionados:
-            # Criar lista booleana para todos os gêneros
             booleans = [g in generos_selecionados for g in generos_unicos]
             predicao = predict_score_knn(membros, booleans)
 
-            # Exibir resultado em destaque
             st.markdown("---")
-            st.markdown("""
+            st.markdown(f"""
             <div style='background-color: #1abc1a; padding: 20px; border-radius: 10px; text-align: center;'>
-                <h2 style='color: white;'>Nota Predita: {:.2f}</h2>
+                <h2 style='color: white;'>Nota Predita: {predicao:.2f}</h2>
             </div>
-            """.format(predicao), unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
         else:
-            st.warning("Por favor, selecione pelo menos um gênero e informe o número de membros.")
+            st.warning("Por favor, selecione pelo menos um gênro e informe o número de membros.")
