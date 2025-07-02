@@ -29,7 +29,7 @@ def carregar_dados():
     ])
     df = df.with_columns([
         pl.col('Genres').list.eval(
-            pl.when(pl.element() == pl.lit("Hentai")).then(pl.lit("+18")).otherwise(pl.element())
+            pl.when(pl.element() == pl.lit("Hentai")).then(pl.lit("Adult Content")).otherwise(pl.element())
         ).alias("Genres")
     ])
     df = df.with_columns(
