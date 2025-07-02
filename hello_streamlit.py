@@ -17,7 +17,7 @@ with st.container():
     st.markdown("---")
 
 # ---------- Seleção de Página ----------
-pagina = st.sidebar.radio("Escolha a página:", ["Dashboard", "Preditor de Notas"])
+pagina = st.sidebar.radio("Escolha a página:", ["Dashboard", "Overview de Genêros"])
 
 if pagina == "Dashboard":
     # ---------- Pré-processamento ----------
@@ -158,14 +158,11 @@ if pagina == "Dashboard":
         st.plotly_chart(fig7, use_container_width=True)
 
 else:  # Preditor de Notas
-    st.markdown("### 🔮 Preditor de Notas")
-    st.markdown("Selecione os gêneros e informe o número de membros para predizer a nota do anime.")
+    st.markdown("### 🔮 Overview de Genêros")
+    st.markdown("Selecione os gêneros que você quer analisar:")
 
     # Lista de gêneros únicos
     generos_unicos = sorted(df_exploded['Genres'].unique().to_list())
-
-    # Input de membros
-    membros = st.number_input("Número de Membros:", min_value=1, step=1000)
 
     # Criando colunas para os checkboxes de gêneros
     st.markdown("### Selecione os Gêneros:")
@@ -180,10 +177,10 @@ else:  # Preditor de Notas
 
     # Botão de predição
     if st.button("Predizer Nota"):
-        if membros > 0 and generos_selecionados:
+        if generos_selecionados:
             # Criar lista booleana para todos os gêneros
             booleans = [g in generos_selecionados for g in generos_unicos]
-            predicao = predict_score_knn(membros, booleans)
+            predicao = predict_score_knn(booleans)
 
             # Exibir resultado em destaque
             st.markdown("---")
@@ -193,4 +190,4 @@ else:  # Preditor de Notas
             </div>
             """.format(predicao), unsafe_allow_html=True)
         else:
-            st.warning("Por favor, selecione pelo menos um gênero e informe o número de membros.")
+            st.warning("Por favor, selecione pelo menos um gênero.")

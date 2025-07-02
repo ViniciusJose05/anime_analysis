@@ -222,16 +222,16 @@ def train_and_evaluate_knn(df, n_neighbors=5):
 
 
 
-_, _, modelo = train_and_evaluate_knn(df_para_ml_com_membros)
+_, _, modelo = train_and_evaluate_knn(df_para_ml)
 
-def predict_score_knn(num_membros, generos_booleans, model = modelo):
+def predict_score_knn(generos_booleans, model = modelo):
     """
     model: modelo KNeighborsRegressor já treinado
     num_membros: int, número de membros
     generos_booleans: list[bool], presença dos gêneros na ordem de generos_lista
     """
     # Monta o vetor de entrada (gêneros + membros)
-    X_input = np.array([*generos_booleans, num_membros]).reshape(1, -1)
+    X_input = np.array([*generos_booleans]).reshape(1, -1)
     # Faz a predição
     predicted_score = model.predict(X_input)[0]
     return predicted_score
