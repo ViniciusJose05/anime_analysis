@@ -25,6 +25,7 @@ Download dos arquivos via API do kaggle e criação do dataframe inicial
 """
 
 import polars as pl
+import numpy as np
 
 # Baixar e carregar o dataset
 anime_polars = pl.read_csv("databases/anime.csv", null_values="Unknown")
@@ -182,6 +183,7 @@ def one_hot_encode(df, column_name):
 
 
 df_para_ml = one_hot_encode(df_para_ml, 'Genres')
+df_para_encontrar = df_para_ml.drop('Name')
 df_para_ml = df_para_ml.drop('Name', 'MAL_ID')
 
 df_para_ml_com_membros = one_hot_encode(df_para_ml_com_membros, 'Genres')
@@ -196,7 +198,7 @@ Implementação de modelo de KNN utilizando 10-10-fold para predição da nota b
 from sklearn.model_selection import KFold
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.metrics import mean_squared_error
-import numpy as np
+from numpy import mean
 
 
 def train_and_evaluate_knn(df, n_neighbors=5):
@@ -217,7 +219,7 @@ def train_and_evaluate_knn(df, n_neighbors=5):
             mse_scores.append(mse)
             last_model = model  # Salva o último modelo treinado
 
-        average_mse = np.mean(mse_scores)
+        average_mse = mean(mse_scores)
         return average_mse, mse_scores, last_model
 
 
@@ -238,6 +240,79 @@ def predict_score_knn(generos_booleans, model=modelo, df_treino=df_para_ml):
         # Faz a predição
         predicted_score = model.predict(X_input)[0]
         return predicted_score
+
+# =====================
+# Funções utilitárias para recomendação de animes
+# =====================
+
+def get_top_animes_by_genres(generos_booleans, n=10, df_treino=df_para_encontrar):
+    """
+    Retorna os n animes com maior Score que possuem todos os gêneros marcados como True em generos_booleans.
+    Prioriza combinações exatas, depois inclui os que têm gêneros extras.
+    """
+    generos_cols = df_treino.drop('Score','MAL_ID').columns
+    generos_array = np.array(df_treino[generos_cols]) == True
+    generos_booleans = np.array(generos_booleans, dtype=bool)
+
+    # Máscara para combinação exata
+    mask_exata = np.all(generos_array == generos_booleans, axis=1)
+    # Máscara para conter todos os gêneros selecionados (mas pode ter extras)
+    mask_contem = np.all(generos_array[:, generos_booleans] == True, axis=1)
+
+    # Filtra e ordena
+    df_exato = df_treino.filter(mask_exata).sort('Score', descending=True)
+    df_extra = df_treino.filter(mask_contem & ~mask_exata).sort('Score', descending=True)
+
+    # Junta e retorna apenas os MAL_IDs
+    top_animes = pl.concat([df_exato, df_extra]).head(n)
+    return top_animes.select(['MAL_ID'])
+
+
+def get_anime_info_by_mal_ids(mal_ids, df_treino):
+    """
+    Retorna informações dos animes na ordem dos MAL_IDs fornecidos.
+    """
+    if not mal_ids:
+        return pl.DataFrame({'Name': [], 'Score': [], 'Genres_combination': []})
+    # Cria DataFrame de ordenação
+    ordem_df = pl.DataFrame({'MAL_ID': mal_ids, 'order_idx': list(range(len(mal_ids)))})
+    # Filtra e faz join para manter a ordem
+    df_filtrado = df_treino.filter(pl.col('MAL_ID').is_in(mal_ids))
+    df_ordenado = ordem_df.join(df_filtrado, on='MAL_ID', how='left').sort('order_idx')
+    return df_ordenado.select(['Name', 'Score', 'Genres_combination'])
+
+# =====================
+# Exemplo de uso (para integração com interface)
+# =====================
+# generos_booleans = [True, False, ...]  # conforme a ordem dos gêneros do seu dataset
+# top_ids = get_top_animes_by_genres(generos_booleans, n=10, df_treino=df_para_encontrar)
+# info = get_anime_info_by_mal_ids(top_ids['MAL_ID'].to_list(), df_treino=df_clean)
+# print(info)
+# =====================
+
+
+# função que baseado numa lista de generos, retorna 5 animes com a maior nota que possuam estes generos
+def get_top_animes(generos_booleans, n=10):
+    """
+    generos_booleans: list[bool], presença dos gêneros na ordem de generos_lista
+    n: número de animes a serem retornados
+    Retorna: DataFrame polars com coluna 'MAL_ID' dos animes selecionados
+    """
+    return get_top_animes_by_genres(generos_booleans, n=n)
+
+# Função para obter informações detalhadas dos animes a partir de um DataFrame polars de MAL_IDs
+def get_anime_info(mal_id_df, df_treino=df_clean):
+    """
+    mal_id_df: DataFrame polars com coluna 'MAL_ID' (resultado de get_top_animes)
+    df_treino: DataFrame polars com informações completas dos animes
+    Retorna: DataFrame polars com colunas ['Name', 'Score', 'Genres_combination']
+    """
+    if mal_id_df.is_empty():
+        return pl.DataFrame({'Name': [], 'Score': [], 'Genres_combination': []})
+    mal_ids = mal_id_df['MAL_ID'].to_list()
+    df_filtrado = df_treino.filter(pl.col('MAL_ID').is_in(mal_ids))
+    df_info = df_filtrado.select(['Name', 'Score', 'Genres_combination'])
+    return df_info
 
 if __name__ == "__main__":
     """### 4.4. Resultados do modelo
@@ -348,3 +423,4 @@ def gerar_graficos_dashboard():
     graficos['grafico_pizza_generos'] = fig8.to_html(full_html=False, include_plotlyjs='cdn')
 
     return graficos
+

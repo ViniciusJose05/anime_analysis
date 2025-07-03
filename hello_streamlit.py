@@ -1,8 +1,7 @@
 import streamlit as st
 import polars as pl
 import plotly.express as px
-import plotly.graph_objects as go
-from anime import predict_score_knn, df_exploded
+from anime import predict_score_knn
 
 # ---------- Configuração da página ----------
 st.set_page_config(page_title="MaoMao - Análise de Animes", layout="wide")
@@ -194,5 +193,22 @@ else:  # Preditor de Notas
                 <h2 style='color: white;'>Nota Predita: {predicao:.2f}</h2>
             </div>
             """, unsafe_allow_html=True)
+
+            # Exibir top animes recomendados
+            from anime import get_top_animes, get_anime_info
+            top_animes_ids = get_top_animes(booleans, n=10)
+            top_animes_info = get_anime_info(top_animes_ids)
+            st.markdown("<h3 style='margin-top:30px;'>Recomendações de Animes</h3>", unsafe_allow_html=True)
+            if top_animes_info.is_empty():
+                st.info("Nenhum anime encontrado com os gêneros selecionados.")
+            else:
+                for row in top_animes_info.iter_rows(named=True):
+                    st.markdown(f"""
+                    <div style='background: #222; border-radius: 10px; margin-bottom: 12px; padding: 16px;'>
+                        <h4 style='color:#1abc1a; margin-bottom: 6px;'>{row['Name']}</h4>
+                        <span style='color:#fff; font-size: 18px;'>Nota: <b>{row['Score']:.2f}</b></span><br>
+                        <span style='color:#bbb;'>Gêneros: {row['Genres_combination']}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
         else:
             st.warning("Por favor, selecione pelo menos um gênero.")
