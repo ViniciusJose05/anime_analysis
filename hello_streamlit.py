@@ -2,6 +2,7 @@ import streamlit as st
 import polars as pl
 import plotly.express as px
 from anime import predict_score_knn, get_top_animes, get_anime_info
+import os
 
 # --------------- CONFIG DA PÁGINA ----------------
 st.set_page_config(page_title="MaoMao - Análise de Animes", layout="wide")
@@ -64,17 +65,17 @@ hr {
 """, unsafe_allow_html=True)
 
 # --------------- LOGO E TÍTULO ----------------
-with st.container():
-    st.markdown("""
-    <div style='display: flex; align-items: center; gap: 20px; margin-bottom: 10px;'>
-        <img src="static/MaoMao.png" width="80" style="border-radius: 10px;" />
-        <div>
-            <h1 style="margin-bottom: 0; font-size: 5 em; background: linear-gradient(to right, #00ff99, #9966ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">MaoMao</h1>
+logo_path = os.path.join("static", "MaoMao.png")
+if os.path.exists(logo_path):
+    col_logo, col_title = st.columns([1, 4])
+    with col_logo:
+        st.image(logo_path, width=80)
+    with col_title:
+        st.markdown("""
+            <h1 style="margin-bottom: 0; font-size: 2.5em; background: linear-gradient(to right, #00ff99, #9966ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">MaoMao</h1>
             <p style='margin-top: 4px; color: #ccc;'>Analytics e Machine Learning para o mundo dos animes</p>
-        </div>
-    </div>
-    <hr style='border-top: 1px solid #444;' />
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+    st.markdown("<hr style='border-top: 1px solid #444;' />", unsafe_allow_html=True)
 
 # --------------- MENU LATERAL ----------------
 pagina = st.sidebar.radio("Navegue:", ["Dashboard", "Predição de Nota"])
@@ -187,7 +188,6 @@ if pagina == "Dashboard":
 # --------------- PREDIÇÃO DE NOTA ----------------
 else:
     st.subheader("Predição de Nota")
-    membros = st.number_input("Informe o número de membros:", min_value=1, step=1000)
     st.markdown("Selecione os gêneros desejados:")
     cols = st.columns(4)
     generos_selecionados = []
@@ -197,21 +197,21 @@ else:
                 generos_selecionados.append(genero)
 
     if st.button("Prever Nota"):
-        if membros > 0 and generos_selecionados:
+        if generos_selecionados:
             booleans = [g in generos_selecionados for g in generos_unicos]
-            pred = predict_score_knn(membros, booleans)
+            pred = predict_score_knn(booleans)
             st.markdown(f"""
             <div style='background-color:#1abc1a; padding:20px; border-radius:10px; text-align:center;'>
                 <h2 style='color:white;'>Nota Estimada: {pred:.2f}</h2>
             </div>
             """, unsafe_allow_html=True)
-
+            # --------------------- Recomendações ---------------------
             top_ids = get_top_animes(booleans, n=10)
             top_info = get_anime_info(top_ids)
             if top_info.is_empty():
                 st.info("Nenhum anime encontrado.")
             else:
-                st.markdown("### \ud83c\udfae Recomendados:")
+                st.markdown("### Animes Recomendados:")
                 for row in top_info.iter_rows(named=True):
                     st.markdown(f"""
                     <div style='background:#222; border-radius: 10px; margin:12px 0; padding:16px;'>
@@ -221,4 +221,4 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
         else:
-            st.warning("Preencha todos os campos antes de predizer.")
+            st.warning("Preencha algum campo antes de predizer.")
