@@ -1,7 +1,8 @@
 import streamlit as st
 import polars as pl
 import plotly.express as px
-from anime import predict_score_knn, get_top_animes, get_anime_info
+from preditor import interface_predicao_nota
+from recomendacoes import mostrar_recomendacoes
 import os
 
 # --------------- CONFIG DA PÁGINA ----------------
@@ -78,7 +79,7 @@ if os.path.exists(logo_path):
     st.markdown("<hr style='border-top: 1px solid #444;' />", unsafe_allow_html=True)
 
 # --------------- MENU LATERAL ----------------
-pagina = st.sidebar.radio("Navegue:", ["Dashboard", "Predição de Nota"])
+pagina = st.sidebar.radio("Navegue:", ["Dashboard", "Predição de Nota", "Recomendações"])
 
 # --------------- CARREGAMENTO DE DADOS ----------------
 @st.cache_data
@@ -186,39 +187,10 @@ if pagina == "Dashboard":
     grafico_card("Distribuição de Notas", fig6)
 
 # --------------- PREDIÇÃO DE NOTA ----------------
-else:
-    st.subheader("Predição de Nota")
-    st.markdown("Selecione os gêneros desejados:")
-    cols = st.columns(4)
-    generos_selecionados = []
-    for idx, genero in enumerate(generos_unicos):
-        with cols[idx % 4]:
-            if st.checkbox(genero, key=genero):
-                generos_selecionados.append(genero)
+elif pagina == "Predição de Nota":
+    # Aqui estava o erro - agora chama a função corretamente
+    interface_predicao_nota(generos_unicos)
 
-    if st.button("Prever Nota"):
-        if generos_selecionados:
-            booleans = [g in generos_selecionados for g in generos_unicos]
-            pred = predict_score_knn(booleans)
-            st.markdown(f"""
-            <div style='background-color:#1abc1a; padding:20px; border-radius:10px; text-align:center;'>
-                <h2 style='color:white;'>Nota Estimada: {pred:.2f}</h2>
-            </div>
-            """, unsafe_allow_html=True)
-            # --------------------- Recomendações ---------------------
-            top_ids = get_top_animes(booleans, n=10)
-            top_info = get_anime_info(top_ids)
-            if top_info.is_empty():
-                st.info("Nenhum anime encontrado.")
-            else:
-                st.markdown("### Animes Recomendados:")
-                for row in top_info.iter_rows(named=True):
-                    st.markdown(f"""
-                    <div style='background:#222; border-radius: 10px; margin:12px 0; padding:16px;'>
-                        <h4 style='color:#1abc1a'>{row['Name']}</h4>
-                        <span style='color:#fff;'>Nota: <b>{row['Score']:.2f}</b></span><br>
-                        <span style='color:#ccc;'>Gêneros: {row['Genres_combination']}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-        else:
-            st.warning("Preencha algum campo antes de predizer.")
+# --------------- RECOMENDAÇÃO DE ANIMES ----------------
+elif pagina == "Recomendações":
+    mostrar_recomendacoes(df_clean, df_exploded)

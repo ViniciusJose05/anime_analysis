@@ -424,3 +424,125 @@ def gerar_graficos_dashboard():
 
     return graficos
 
+# Adicione estas funções ao final do seu arquivo anime.py
+
+def get_top_animes_by_genres_new(selected_genres, n=10):
+    """
+    Busca animes que contenham TODOS os gêneros selecionados
+    Args:
+        selected_genres: Lista de gêneros selecionados (ex: ['Comedy', 'Action'])
+        n: Número de animes a retornar
+    Returns:
+        DataFrame Polars com coluna 'MAL_ID'
+    """
+    # Filtra animes que contêm todos os gêneros selecionados
+    df_filtered = df_clean.filter(
+        pl.col('Genres').list.eval(
+            pl.element().is_in(selected_genres)
+        ).list.all()
+    )
+    
+    # Ordena por Score (decrescente) e pega os top n
+    top_animes = df_filtered.sort('Score', descending=True).head(n)
+    
+    return top_animes.select(['MAL_ID'])
+
+def get_anime_info_sorted_new(top_ids_df):
+    """
+    Retorna informações dos animes ordenados por nota (decrescente)
+    Args:
+        top_ids_df: DataFrame Polars com coluna 'MAL_ID'
+    Returns:
+        DataFrame Polars com Name, Score, Genres_combination
+    """
+    if top_ids_df.is_empty():
+        return pl.DataFrame({
+            'Name': [],
+            'Score': [],
+            'Genres_combination': []
+        })
+    
+    # Extrai a lista de MAL_IDs
+    mal_ids = top_ids_df['MAL_ID'].to_list()
+    
+    # Filtra o dataframe original pelos MAL_IDs e ordena por Score
+    result = df_clean.filter(
+        pl.col('MAL_ID').is_in(mal_ids)
+    ).sort('Score', descending=True).select([
+        'Name', 'Score', 'Genres_combination'
+    ])
+    
+    return result
+
+def predict_score_by_genres_new(selected_genres):
+    """
+    Prediz a nota baseada nos gêneros selecionados
+    Args:
+        selected_genres: Lista de gêneros selecionados
+    Returns:
+        Nota predita (float)
+    """
+    # Filtra animes que contêm todos os gêneros selecionados
+    df_filtered = df_clean.filter(
+        pl.col('Genres').list.eval(
+            pl.element().is_in(selected_genres)
+        ).list.all()
+    )
+    
+    if df_filtered.is_empty():
+        # Se não há animes com essa combinação, retorna uma estimativa baseada na média geral
+        return 7.0 + len(selected_genres) * 0.2
+    
+    # Calcula a média das notas dos animes filtrados
+    mean_score = df_filtered['Score'].mean()
+    
+    return float(mean_score)
+
+# Alternativa usando o sistema de boolean (compatível com o código antigo)
+def get_top_animes_by_genres_boolean(generos_booleans, n=10):
+    """
+    Busca animes baseado em array de booleans (sistema antigo)
+    Args:
+        generos_booleans: Lista de booleans indicando quais gêneros foram selecionados
+        n: Número de animes a retornar
+    Returns:
+        DataFrame Polars com coluna 'MAL_ID'
+    """
+    # Converte booleans para lista de gêneros
+    generos_cols = df_para_ml.drop('Score').columns
+    selected_genres = [generos_cols[i].replace('Genres_', '') for i, selected in enumerate(generos_booleans) if selected]
+    
+    # Usa a função nova
+    return get_top_animes_by_genres_new(selected_genres, n)
+
+def predict_score_by_genres_boolean(generos_booleans):
+    """
+    Prediz nota baseado em array de booleans (sistema antigo)
+    Args:
+        generos_booleans: Lista de booleans indicando quais gêneros foram selecionados
+    Returns:
+        Nota predita (float)
+    """
+    # Converte booleans para lista de gêneros
+    generos_cols = df_para_ml.drop('Score').columns
+    selected_genres = [generos_cols[i].replace('Genres_', '') for i, selected in enumerate(generos_booleans) if selected]
+    
+    # Usa a função nova
+    return predict_score_by_genres_new(selected_genres)
+
+# Função auxiliar para obter lista de gêneros únicos
+def get_unique_genres():
+    """
+    Retorna lista de gêneros únicos do dataset
+    Returns:
+        Lista de strings com nomes dos gêneros
+    """
+    return df_clean['Genres'].explode().unique().sort().to_list()
+
+# Exemplo de uso:
+# selected_genres = ['Comedy', 'Action']
+# top_ids = get_top_animes_by_genres_new(selected_genres, n=10)
+# info = get_anime_info_sorted_new(top_ids)
+# score = predict_score_by_genres_new(selected_genres)
+# print(f"Nota predita: {score:.2f}")
+# print(info)
