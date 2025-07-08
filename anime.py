@@ -26,140 +26,45 @@ Download dos arquivos via API do kaggle e criação do dataframe inicial
 
 import polars as pl
 import numpy as np
-
-# Baixar e carregar o dataset
-anime_polars = pl.read_csv("databases/anime.csv", null_values="Unknown")
-
-
-"""# 2. Pré Processamento
-
-###  2.1. Remover valores nulos em colunas importantes (`Genres` e `Scores`)
-"""
-
-df_clean = anime_polars.filter(
-    (anime_polars['Genres'].is_not_null()) & (anime_polars['Score'].is_not_null())
-)
-
-"""### 2.2. Separar a coluna `Genres` em uma lista"""
-
-df_clean = df_clean.with_columns(
-    pl.col('Genres')
-    .str.replace("Hentai", "Adult Content")
-    .str.split(", ")  # converte para lista
-)
-
-"""###  2.3. Criar coluna com combinação ordenada dos gêneros"""
-
-
-def process_genres(genres):
-    try:
-        if genres is not None and len(genres) > 0:
-            return ", ".join(sorted(genres))
-        else:
-            return ""
-    except (TypeError, AttributeError):
-        return ""
-
-
-df_clean = df_clean.with_columns(
-    pl.col('Genres').map_elements(process_genres, return_dtype=pl.Utf8).alias('Genres_combination')
-)
-
-"""# 3. Análises Exploratórias"""
-
-import plotly.express as px
-
-# Explodir para análise individual de gêneros
-df_exploded = df_clean.explode('Genres')
-
-"""### 3.1. Gêneros mais frequentes
-
-"""
-
-genero_freq = (
-    df_exploded.group_by('Genres')
-    .len()
-    .sort('len', descending=True)
-    .rename({'len': 'Frequencia'})
-)
-
-px.bar(genero_freq.to_pandas(), x='Genres', y='Frequencia', title='Gêneros Mais Frequentes')
-
-"""### 3.2. Nota média por gênero"""
-
-genero_score = (
-    df_exploded.group_by('Genres')
-    .agg(pl.col('Score').mean().alias('Nota Média'))
-    .sort('Nota Média', descending=True)
-)
-
-px.bar(genero_score.head(15).to_pandas(), x='Genres', y='Nota Média', title='Top 15 Gêneros com Melhores Notas')
-px.bar(genero_score.tail(15).to_pandas(), x='Genres', y='Nota Média', title='15 Gêneros com Piores Notas')
-
-"""### 3.3. Combinações de gêneros mais comuns"""
-
-df_combos = df_clean.filter(pl.col('Genres').list.len() > 1)
-
-combo_freq = (
-    df_combos
-    .group_by('Genres_combination')
-    .agg(pl.count().alias('Frequencia'))
-    .sort('Frequencia', descending=True)
-)
-
-px.bar(combo_freq.head(15).to_pandas(), x='Genres_combination', y='Frequencia',
-       title='🔗 Combinações de Gêneros Mais Comuns (com 2 ou mais gêneros)')
-
-"""### 3.4. Estúdios com melhor nota média
-
-"""
-
-df_studios = df_clean.filter(
-    (pl.col('Studios').is_not_null()) & (pl.col('Studios') != "None")
-)
-
-# Agrupar por estúdio e calcular média e contagem
-studio_avg = (
-    df_studios
-    .group_by('Studios')
-    .agg([
-        pl.col('Score').mean().alias('Nota Média'),
-        pl.count().alias('Quantidade de Animes')
-    ])
-    .filter(pl.col('Quantidade de Animes') >= 5)
-    .sort('Nota Média', descending=True)
-)
-
-fig = px.bar(
-    studio_avg.head(15).to_pandas(),  # Top 15 estúdios com melhor nota média
-    x='Studios',
-    y='Nota Média',
-    title='🎬 Estúdios com as Melhores Notas Médias (com pelo menos 5 animes)',
-    text='Nota Média',
-    labels={'Studios': 'Estúdio', 'Nota Média': 'Nota Média'}
-)
-fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-fig.update_layout(xaxis_tickangle=-45)
-
-""" ### 3.5. Relação entre popularidade e avaliação"""
-
-relacao_popularidade = df_clean.select(['Score', 'Members', 'Genres_combination']).to_pandas()
-
-px.scatter(relacao_popularidade, x='Score', y='Members', color='Genres_combination',
-           size='Members', hover_data=['Genres_combination'],
-           title='Relação entre Nota e Popularidade por Gênero')
+from sklearn.model_selection import KFold
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.metrics import mean_squared_error
+from numpy import mean
+import os
 
 """# 4. Modelo SVM para predição de notas
 
 ### 4.1. Filtragem das colunas necessárias
 """
 
+
+def carregar_dados_anime():
+    # download do arquivo anime.csv via API do kaggle caso ele não esteja presente
+    if not os.path.exists("databases/anime.csv"):
+        os.makedirs("databases", exist_ok=True)
+        import kaggle
+        kaggle.api.dataset_download_files('hernan4444/anime-recommendation-database-2020', path='databases', unzip=True)
+    # leitura do arquivo anime.csv e filtragem das colunas necessárias
+    df = pl.read_csv("databases/anime.csv", null_values="Unknown")
+    df = df.filter(pl.col('Score').is_not_null() & pl.col('Genres').is_not_null())
+    df = df.with_columns([
+        pl.col('Genres').str.split(', ').alias('Genres')
+    ])
+    df = df.with_columns([
+        pl.col('Genres').list.eval(
+            pl.when(pl.element() == pl.lit("Hentai")).then(pl.lit("Adult Content")).otherwise(pl.element())
+        ).alias("Genres")
+    ])
+    df = df.with_columns(
+        pl.col("Genres").map_elements(lambda genres: ", ".join(sorted(genres)), return_dtype=pl.String).alias("Genres_combination")
+    )
+    return df
+
+
+df_clean = carregar_dados_anime()
+
 df_para_ml = df_clean.select(
     ['MAL_ID', 'Name', 'Genres', 'Score']
-)
-
-df_para_ml_com_membros = df_clean.select(
-    ['MAL_ID', 'Name', 'Genres', 'Score', 'Members']
 )
 
 """### 4.2. One-Hot Encoding nos generos das listas de cada linha
@@ -186,19 +91,11 @@ df_para_ml = one_hot_encode(df_para_ml, 'Genres')
 df_para_encontrar = df_para_ml.drop('Name')
 df_para_ml = df_para_ml.drop('Name', 'MAL_ID')
 
-df_para_ml_com_membros = one_hot_encode(df_para_ml_com_membros, 'Genres')
-df_para_ml_com_membros = df_para_ml_com_membros.drop('Name', 'MAL_ID')
-
 
 """### 4.3. Função de treinamento e teste
 
 Implementação de modelo de KNN utilizando 10-10-fold para predição da nota baseado em generos, contendo ou não o numero de membros de cada entrada.
 """
-
-from sklearn.model_selection import KFold
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.metrics import mean_squared_error
-from numpy import mean
 
 
 def train_and_evaluate_knn(df, n_neighbors=5):
@@ -206,7 +103,7 @@ def train_and_evaluate_knn(df, n_neighbors=5):
         y = df['Score'].to_numpy()
         n_folds = 10
         kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
-        mse_scores = []
+        mse_scores_temp = []
         last_model = None
 
         for train_index, test_index in kf.split(X):
@@ -216,12 +113,11 @@ def train_and_evaluate_knn(df, n_neighbors=5):
             model.fit(X_train, y_train)
             y_pred = model.predict(X_test)
             mse = mean_squared_error(y_test, y_pred)
-            mse_scores.append(mse)
+            mse_scores_temp.append(mse)
             last_model = model  # Salva o último modelo treinado
 
-        average_mse = mean(mse_scores)
-        return average_mse, mse_scores, last_model
-
+        average_mse_temp = mean(mse_scores_temp)
+        return average_mse_temp, mse_scores_temp, last_model
 
 
 _, _, modelo = train_and_evaluate_knn(df_para_ml)
@@ -247,7 +143,7 @@ def predict_score_knn(generos_booleans, model=modelo, df_treino=df_para_ml):
 
 def get_top_animes_by_genres(generos_booleans, n=10, df_treino=df_para_encontrar):
     """
-    Retorna os n animes com maior Score que possuem todos os gêneros marcados como True em generos_booleans.
+    Retorna os "n" animes com maior Score que possuem todos os gêneros marcados como True em generos_booleans.
     Prioriza combinações exatas, depois inclui os que têm gêneros extras.
     """
     generos_cols = df_treino.drop('Score','MAL_ID').columns
@@ -268,34 +164,11 @@ def get_top_animes_by_genres(generos_booleans, n=10, df_treino=df_para_encontrar
     return top_animes.select(['MAL_ID'])
 
 
-def get_anime_info_by_mal_ids(mal_ids, df_treino):
-    """
-    Retorna informações dos animes na ordem dos MAL_IDs fornecidos.
-    """
-    if not mal_ids:
-        return pl.DataFrame({'Name': [], 'Score': [], 'Genres_combination': []})
-    # Cria DataFrame de ordenação
-    ordem_df = pl.DataFrame({'MAL_ID': mal_ids, 'order_idx': list(range(len(mal_ids)))})
-    # Filtra e faz join para manter a ordem
-    df_filtrado = df_treino.filter(pl.col('MAL_ID').is_in(mal_ids))
-    df_ordenado = ordem_df.join(df_filtrado, on='MAL_ID', how='left').sort('order_idx')
-    return df_ordenado.select(['Name', 'Score', 'Genres_combination'])
-
-# =====================
-# Exemplo de uso (para integração com interface)
-# =====================
-# generos_booleans = [True, False, ...]  # conforme a ordem dos gêneros do seu dataset
-# top_ids = get_top_animes_by_genres(generos_booleans, n=10, df_treino=df_para_encontrar)
-# info = get_anime_info_by_mal_ids(top_ids['MAL_ID'].to_list(), df_treino=df_clean)
-# print(info)
-# =====================
-
-
 # função que baseado numa lista de generos, retorna 5 animes com a maior nota que possuam estes generos
 def get_top_animes(generos_booleans, n=10):
     """
     generos_booleans: list[bool], presença dos gêneros na ordem de generos_lista
-    n: número de animes a serem retornados
+    "n": número de animes a serem retornados
     Retorna: DataFrame polars com coluna 'MAL_ID' dos animes selecionados
     """
     return get_top_animes_by_genres(generos_booleans, n=n)
@@ -323,226 +196,3 @@ if __name__ == "__main__":
     average_mse, mse_scores, _ = train_and_evaluate_knn(df_para_ml)
     print("MSE por fold:", mse_scores)
     print("Média do erro quadrático médio:", average_mse)
-
-    """4.4.2. Modelo com número de membros"""
-
-    average_mse_membros, mse_scores_membros, _ = train_and_evaluate_knn(df_para_ml_com_membros)
-    print(f"MSE por fold: {mse_scores_membros}")
-    print(f"Média do erro quadrático médio: {average_mse_membros}")
-
-def gerar_graficos_dashboard():
-    graficos = {}
-
-    # Gêneros mais frequentes
-    fig1 = px.bar(genero_freq.to_pandas(), x='Genres', y='Frequencia', title='🎭 Gêneros Mais Frequentes')
-    graficos['grafico_generos_freq'] = fig1.to_html(full_html=False, include_plotlyjs='cdn')
-
-    # Top 15 Gêneros com Melhores Notas (linha)
-    fig2 = px.line(
-        genero_score.head(15).to_pandas(),
-        x='Genres',
-        y='Nota Média',
-        markers=True,
-        title='📈 Top 15 Gêneros com Melhores Notas'
-    )
-    fig2.update_traces(mode='lines+markers+text', texttemplate='%{y:.2f}', textposition='top center')
-    graficos['grafico_nota_genero_top'] = fig2.to_html(full_html=False, include_plotlyjs='cdn')
-
-    # 15 Gêneros com Piores Notas (linha)
-    fig3 = px.line(
-        genero_score.tail(15).to_pandas(),
-        x='Genres',
-        y='Nota Média',
-        markers=True,
-        title='📉 15 Gêneros com Piores Notas'
-    )
-    fig3.update_traces(mode='lines+markers+text', texttemplate='%{y:.2f}', textposition='top center')
-    graficos['grafico_nota_genero_worst'] = fig3.to_html(full_html=False, include_plotlyjs='cdn')
-
-    # Combinações de gêneros mais comuns
-    fig4 = px.bar(combo_freq.head(15).to_pandas(), x='Genres_combination', y='Frequencia',
-                  title='🔗 Combinações de Gêneros Mais Comuns (com 2 ou mais gêneros)')
-    graficos['grafico_combos'] = fig4.to_html(full_html=False, include_plotlyjs='cdn')
-
-    # Estúdios com nomes simples (sem vírgula)
-    studio_avg_simples = studio_avg.filter(~pl.col('Studios').str.contains(","))
-    fig5 = px.bar(
-        studio_avg_simples.head(15).to_pandas().sort_values(by='Nota Média'),
-        x='Nota Média',
-        y='Studios',
-        orientation='h',
-        title='🏆 Estúdios com Melhores Notas Médias (nome único)',
-        text='Nota Média'
-    )
-    fig5.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-    graficos['grafico_estudios'] = fig5.to_html(full_html=False, include_plotlyjs='cdn')
-
-    # Popularidade x Nota com bolhas
-    relacao_popularidade_nome = df_clean.select(['Score', 'Members', 'Name']).to_pandas()
-
-    fig6 = px.scatter(
-        relacao_popularidade_nome,
-        x='Score',
-        y='Members',
-        color='Score',  # você pode usar 'Score' para colorir por intensidade
-        size='Members',
-        hover_name='Name',
-        title='📊 Popularidade vs Nota por Anime (Gráfico de Bolhas)'
-    )
-    graficos['grafico_pop'] = fig6.to_html(full_html=False, include_plotlyjs='cdn')
-
-    # Score distribution
-    df_scores_distrib = df_clean.with_columns(
-    pl.col('Score').round(0).alias('ScoreArredondado')
-    )
-
-    score_dist = (
-        df_scores_distrib
-        .group_by('ScoreArredondado')
-        .agg(pl.col('Members').sum().alias('TotalMembros'))
-        .sort('ScoreArredondado', descending=True)
-    )
-
-    fig7 = px.line(
-        score_dist.to_pandas(),
-        x='ScoreArredondado',
-        y='TotalMembros',
-        markers=True,
-        title='📈 Distribuição de Usuários por Nota (Score)'
-    )
-    fig7.update_traces(mode='lines+markers+text', texttemplate='%{y}', textposition='top center')
-    graficos['grafico_score_dist'] = fig7.to_html(full_html=False, include_plotlyjs='cdn')
-
-    # Pizza chart - Distribuição de Gêneros
-    fig8 = px.pie(
-        genero_freq.to_pandas().head(10),
-        values='Frequencia',
-        names='Genres',
-        title='🍕 Distribuição de Gêneros (Top 10)'
-    )
-    graficos['grafico_pizza_generos'] = fig8.to_html(full_html=False, include_plotlyjs='cdn')
-
-    return graficos
-
-# Adicione estas funções ao final do seu arquivo anime.py
-
-def get_top_animes_by_genres_new(selected_genres, n=10):
-    """
-    Busca animes que contenham TODOS os gêneros selecionados
-    Args:
-        selected_genres: Lista de gêneros selecionados (ex: ['Comedy', 'Action'])
-        n: Número de animes a retornar
-    Returns:
-        DataFrame Polars com coluna 'MAL_ID'
-    """
-    # Filtra animes que contêm todos os gêneros selecionados
-    df_filtered = df_clean.filter(
-        pl.col('Genres').list.eval(
-            pl.element().is_in(selected_genres)
-        ).list.all()
-    )
-    
-    # Ordena por Score (decrescente) e pega os top n
-    top_animes = df_filtered.sort('Score', descending=True).head(n)
-    
-    return top_animes.select(['MAL_ID'])
-
-def get_anime_info_sorted_new(top_ids_df):
-    """
-    Retorna informações dos animes ordenados por nota (decrescente)
-    Args:
-        top_ids_df: DataFrame Polars com coluna 'MAL_ID'
-    Returns:
-        DataFrame Polars com Name, Score, Genres_combination
-    """
-    if top_ids_df.is_empty():
-        return pl.DataFrame({
-            'Name': [],
-            'Score': [],
-            'Genres_combination': []
-        })
-    
-    # Extrai a lista de MAL_IDs
-    mal_ids = top_ids_df['MAL_ID'].to_list()
-    
-    # Filtra o dataframe original pelos MAL_IDs e ordena por Score
-    result = df_clean.filter(
-        pl.col('MAL_ID').is_in(mal_ids)
-    ).sort('Score', descending=True).select([
-        'Name', 'Score', 'Genres_combination'
-    ])
-    
-    return result
-
-def predict_score_by_genres_new(selected_genres):
-    """
-    Prediz a nota baseada nos gêneros selecionados
-    Args:
-        selected_genres: Lista de gêneros selecionados
-    Returns:
-        Nota predita (float)
-    """
-    # Filtra animes que contêm todos os gêneros selecionados
-    df_filtered = df_clean.filter(
-        pl.col('Genres').list.eval(
-            pl.element().is_in(selected_genres)
-        ).list.all()
-    )
-    
-    if df_filtered.is_empty():
-        # Se não há animes com essa combinação, retorna uma estimativa baseada na média geral
-        return 7.0 + len(selected_genres) * 0.2
-    
-    # Calcula a média das notas dos animes filtrados
-    mean_score = df_filtered['Score'].mean()
-    
-    return float(mean_score)
-
-# Alternativa usando o sistema de boolean (compatível com o código antigo)
-def get_top_animes_by_genres_boolean(generos_booleans, n=10):
-    """
-    Busca animes baseado em array de booleans (sistema antigo)
-    Args:
-        generos_booleans: Lista de booleans indicando quais gêneros foram selecionados
-        n: Número de animes a retornar
-    Returns:
-        DataFrame Polars com coluna 'MAL_ID'
-    """
-    # Converte booleans para lista de gêneros
-    generos_cols = df_para_ml.drop('Score').columns
-    selected_genres = [generos_cols[i].replace('Genres_', '') for i, selected in enumerate(generos_booleans) if selected]
-    
-    # Usa a função nova
-    return get_top_animes_by_genres_new(selected_genres, n)
-
-def predict_score_by_genres_boolean(generos_booleans):
-    """
-    Prediz nota baseado em array de booleans (sistema antigo)
-    Args:
-        generos_booleans: Lista de booleans indicando quais gêneros foram selecionados
-    Returns:
-        Nota predita (float)
-    """
-    # Converte booleans para lista de gêneros
-    generos_cols = df_para_ml.drop('Score').columns
-    selected_genres = [generos_cols[i].replace('Genres_', '') for i, selected in enumerate(generos_booleans) if selected]
-    
-    # Usa a função nova
-    return predict_score_by_genres_new(selected_genres)
-
-# Função auxiliar para obter lista de gêneros únicos
-def get_unique_genres():
-    """
-    Retorna lista de gêneros únicos do dataset
-    Returns:
-        Lista de strings com nomes dos gêneros
-    """
-    return df_clean['Genres'].explode().unique().sort().to_list()
-
-# Exemplo de uso:
-# selected_genres = ['Comedy', 'Action']
-# top_ids = get_top_animes_by_genres_new(selected_genres, n=10)
-# info = get_anime_info_sorted_new(top_ids)
-# score = predict_score_by_genres_new(selected_genres)
-# print(f"Nota predita: {score:.2f}")
-# print(info)

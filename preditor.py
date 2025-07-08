@@ -1,5 +1,5 @@
 import streamlit as st
-from anime import get_top_animes, get_anime_info, predict_score_knn
+from recomendacoes import mostra_badges
 
 # Se você não tiver o arquivo anime.py, aqui estão algumas funções de fallback
 def fallback_predict_score_knn(booleans):
@@ -11,12 +11,12 @@ def fallback_predict_score_knn(booleans):
     predicted_score = min(10.0, base_score + genre_bonus)
     return predicted_score
 
-def fallback_get_top_animes(booleans, n=10):
+def fallback_get_top_animes(_, n=10):
     """Função de fallback para obter top animes"""
     # Retorna uma lista de IDs fictícios
     return list(range(1, n + 1))
 
-def fallback_get_anime_info(top_ids):
+def fallback_get_anime_info(_):
     """Função de fallback para obter informações dos animes"""
     # Retorna um DataFrame vazio do Polars
     import polars as pl
@@ -55,8 +55,7 @@ def interface_predicao_nota(generos_unicos):
     
     # Mostra os gêneros selecionados
     if generos_selecionados:
-        st.markdown("**Gêneros selecionados:**")
-        st.write(", ".join(generos_selecionados))
+        mostra_badges(generos_selecionados)
     
     # Botão de predição
     if st.button("🔮 Prever Nota", type="primary"):

@@ -24,21 +24,22 @@ except ImportError:
     get_top_animes = fallback_get_top_animes
     get_anime_info = fallback_get_anime_info
 
-def obter_recomendacoes_por_filtros(df_clean, df_exploded, generos_selecionados, min_score=6.0, max_results=10):
+def obter_recomendacoes_por_filtros(df_clean, generos_selecionados, min_score=6.0, max_results=10):
     """
     Função auxiliar para obter recomendações baseadas em filtros locais
     quando as funções do anime.py não estão disponíveis
     """
     try:
+        # Cria o filtro inicial com o primeiro gênero
+        filtro_generos = pl.col("Genres").list.contains(generos_selecionados[0])
+
+        # Adiciona os demais gêneros com OR
+        for genero in generos_selecionados[1:]:
+            filtro_generos = filtro_generos | pl.col("Genres").list.contains(genero)
+
         # Filtra animes que contenham pelo menos um dos gêneros selecionados
-        df_filtrado = df_clean.filter(
-            pl.col("Genres").list.eval(
-                pl.any_horizontal([
-                    pl.element().str.contains(genero) for genero in generos_selecionados
-                ])
-            )
-        )
-        
+        df_filtrado = df_clean.filter(filtro_generos)
+
         # Filtra por nota mínima e ordena por score
         df_recomendacoes = df_filtrado.filter(
             pl.col("Score") >= min_score
@@ -111,22 +112,7 @@ def mostrar_recomendacoes(df_clean, df_exploded):
 
     # Mostra os gêneros selecionados
     if generos_selecionados:
-        st.markdown("**🎯 Gêneros selecionados:**")
-        # Cria badges para os gêneros selecionados
-        badges_html = ""
-        for genero in generos_selecionados:
-            badges_html += f"""
-                <span style='background: linear-gradient(45deg, #1abc9c, #16a085); 
-                           color: white; 
-                           padding: 5px 12px; 
-                           border-radius: 20px; 
-                           margin: 3px; 
-                           display: inline-block;
-                           font-size: 0.9em;'>
-                    {genero}
-                </span>
-            """
-        st.markdown(f"<div style='margin: 10px 0;'>{badges_html}</div>", unsafe_allow_html=True)
+        mostra_badges(generos_selecionados)
 
     # Botão de recomendação
     if st.button("🔍 Buscar Recomendações", type="primary", use_container_width=True):
@@ -142,7 +128,7 @@ def mostrar_recomendacoes(df_clean, df_exploded):
                     if top_info.is_empty():
                         st.info("Usando recomendações baseadas nos dados locais...")
                         top_info = obter_recomendacoes_por_filtros(
-                            df_clean, df_exploded, generos_selecionados, 
+                            df_clean, generos_selecionados,
                             nota_minima, num_recomendacoes
                         )
                     
@@ -288,3 +274,20 @@ def mostrar_recomendacoes(df_clean, df_exploded):
         - Use a seleção aleatória para descobrir novos gostos
         - Ajuste a nota mínima conforme sua preferência
         """)
+
+
+def mostra_badges(generos_selecionados):
+    st.markdown("**🎯 Gêneros selecionados:**")
+    # Cria distintivos para os gêneros selecionados
+    badges_html = "<div style='display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0;'>"
+    for genero in generos_selecionados:
+        badges_html += f"""
+                <span style='background: linear-gradient(45deg, #1abc9c, #16a085); 
+                           color: white; 
+                           padding: 5px 12px; 
+                           border-radius: 20px; 
+                           display: inline-block;
+                           font-size: 0.9em;
+                           box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>{genero}</span>"""
+    badges_html += "</div>"
+    st.markdown(f"{badges_html}", unsafe_allow_html=True)
