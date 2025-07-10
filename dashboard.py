@@ -36,7 +36,7 @@ def cria_pagina_dashboard(df_inicial, df_explodidos, generos_usados):
         <div class="card">
             <div class="kpi-icon"><i class="fas fa-users" style="color: #6C3BAA;"></i></div>
             <div class="kpi-value">{int(total_membros / 1e6)}M</div>
-            <div class="kpi-label">Membros Ativos</div>
+            <div class="kpi-label">Total de Avaliações</div>
         </div>""", unsafe_allow_html=True)
     with col4:
         st.markdown(f"""
